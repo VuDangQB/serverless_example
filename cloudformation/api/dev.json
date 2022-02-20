@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "LambdaMemorySize",
+    "ParameterValue": "128"
+  },
+  {
+    "ParameterKey": "LambdaRuntime",
+    "ParameterValue": "python3.7"
+  },
+  {
+    "ParameterKey": "DdbReadCapacityUnits",
+    "ParameterValue": "5"
+  },
+  {
+    "ParameterKey": "DdbWriteCapacityUnits",
+    "ParameterValue": "5"
+  },
+  {
+    "ParameterKey": "ProjectBucketName",
+    "ParameterValue": "serverless-lambdatest"
+  }
+]
