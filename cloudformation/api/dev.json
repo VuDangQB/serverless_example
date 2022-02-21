@@ -22,5 +22,25 @@
   {
     "ParameterKey": "ProjectBucketName",
     "ParameterValue": "serverless-lambdatest"
+  },
+  {
+    "ParameterKey": "LambdaTimeout",
+    "ParameterValue": "300"
+  },
+  {
+    "ParameterKey": "ApiStageName",
+    "ParameterValue": "V0"
+  },
+  {
+    "ParameterKey": "ApiUsageMonthlyLimit",
+    "ParameterValue": "100000"
+  },
+  {
+    "ParameterKey": "ApiUsageRateLimit",
+    "ParameterValue": "10"
+  },
+  {
+    "ParameterKey": "ApiUsageBurstLimit",
+    "ParameterValue": "20"
   }
 ]

@@ -22,15 +22,15 @@ Parameters:
   CodeBucket:
     Description: The S3 bucket containing the lambda code.
     Type: String
-    Default: demo-serverless-vudang-aws
+    Default: demo-serverless-aws
 
   # GitSha:
   #   Description: The GitSha of commit containing the Lambda code to be deployed.
   #   Type: String
 
-  # ApiStageName:
-  #   Description: The stage name to deploy the API Gateway with.
-  #   Type: String
+  ApiStageName:
+    Description: The stage name to deploy the API Gateway with.
+    Type: String
 
   # ApiDomainName:
   #   Description: The base domain name used to create the APIs custom domain.
@@ -40,17 +40,17 @@ Parameters:
   #   Description: An AWS managed certificate for the API domain name.
   #   Type: String
 
-  # ApiUsageBurstLimit:
-  #   Description: The Api Burst Usage limit.
-  #   Type: Number
+  ApiUsageBurstLimit:
+    Description: The Api Burst Usage limit.
+    Type: Number
 
-  # ApiUsageRateLimit:
-  #   Description: The rate Api Usage limit
-  #   Type: Number
+  ApiUsageRateLimit:
+    Description: The rate Api Usage limit
+    Type: Number
 
-  # ApiUsageMonthlyLimit:
-  #   Description: The monthly Api Usage limit.
-  #   Type: Number
+  ApiUsageMonthlyLimit:
+    Description: The monthly Api Usage limit.
+    Type: Number
 
   # LambdaDeployDefaultSecurityGroupId:
   #   Description: The default security group id configured for the target VPC to deploy to.
@@ -83,9 +83,9 @@ Parameters:
     Type: String
     Default: python3.7
 
-  # LambdaTimeout:
-  #   Description: The amount of time that Lambda allows a function to run before stopping it.
-  #   Type: Number
+  LambdaTimeout:
+    Description: The amount of time that Lambda allows a function to run before stopping it.
+    Type: Number
   #   Default: 10
 
   # # ServiceKmsKeyId:
@@ -157,11 +157,11 @@ Resources:
         Environment:
             Variables: 
                 DEMO_ENVIRONMENT: !Ref EnvironmentName
-        FunctionName: 
-            !If
-            IsProdAccount
-            - !Sub "${EnvironmentName}-${ProjectName}-api"
-            - !Sub "${EnvironmentName}-${ProjectName}-api"
+        FunctionName: !Sub "${EnvironmentName}-${ProjectName}-api"
+            # !If
+            # IsProdAccount
+            # - !Sub "${EnvironmentName}-${ProjectName}-api"
+            # - !Sub "${EnvironmentName}-${ProjectName}-api"
         Handler: api.fn_api_handler.lambda_handler
         MemorySize: !Ref LambdaMemorySize
         Runtime: !Ref LambdaRuntime
@@ -171,27 +171,26 @@ Resources:
   LambdaServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: 
+      RoleName: !Sub "${EnvironmentName}-${ProjectName}-api-lambda"
           # !If
           # - IsProdAccount
           # - !Sub "${EnvironmentName}-${ProjectName}-api-lambda"
-          - !Sub "${EnvironmentName}-${ProjectName}-api-lambda"    
+          # - !Sub "${EnvironmentName}-${ProjectName}-api-lambda"    
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Effect: "Allow"
+          Effect: "Allow"
           Principal:
-          Service: 
-            - "lambda.amazonaws.com"
-            - "events.amazonaws.com"
+            Service: 
+              - "lambda.amazonaws.com"
+              - "events.amazonaws.com"
           Action: "sts:AssumeRole"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
         - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
         - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
       Policies:
-        - PolicyName: 
-            - !Sub "${EnvironmentName}-${ProjectName}-api-s3"
+        - PolicyName: !Sub "${EnvironmentName}-${ProjectName}-api-s3"
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -199,17 +198,16 @@ Resources:
                 Action:
                   - "s3:GetBucketLocation"
                   - "s3:ListBucket"
-                Resource:
-                  - !Sub "arn:aws:s3:::${ProjectBucketName}"
+                Resource: !Sub "arn:aws:s3:::${ProjectBucketName}"
               - Effect: "Allow"
                 Action:
                   - "s3:GetObject*"
                   - "s3:PutObject*"
                   - "s3:DeleteObject*"
-                Resource:
-                  - !Sub "arn:aws:s3:::${ProjectBucketName}/*"
-        - PolicyName: 
-            - !Sub "${EnvironmentName}-${ProjectName}-api-dynamodb"
+                Resource: !Sub "arn:aws:s3:::${ProjectBucketName}/*"
+                  # - !Sub "arn:aws:s3:::${ProjectBucketName}/*"
+        - PolicyName: !Sub "${EnvironmentName}-${ProjectName}-api-dynamodb"
+            # - !Sub "${EnvironmentName}-${ProjectName}-api-dynamodb"
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -226,3 +224,176 @@ Resources:
                   - "dynamodb:Query"
                 Resource:             
                   - !GetAtt UserTable.Arn
+    
+  ApiGatewayDemo:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+    # ApiKeySourceType: HEADER
+      Description: !Sub "API Gateway for the project ${ProjectName} with Lambda Proxy Integration."
+      EndpointConfiguration:
+        Types: 
+        - REGIONAL
+      Name: !Sub "${EnvironmentName}-${ProjectName}-api"
+
+  ProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayDemo.RootResourceId
+      #PathPart: '{proxy+}'
+      PathPart: '{proxy+}'
+      RestApiId: !Ref ApiGatewayDemo
+
+  ProxyResourcePostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: True
+      #ApiKeyRequired: False
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        Type: AWS_PROXY
+        Credentials: !GetAtt ApiServiceRole.Arn
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DemoLambdaFunction.Arn}/invocations"
+      ResourceId: !Ref ProxyResource
+      RestApiId: !Ref ApiGatewayDemo
+
+  ProxyResourceGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: True
+      #ApiKeyRequired: False
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        Type: AWS_PROXY
+        Credentials: !GetAtt ApiServiceRole.Arn
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DemoLambdaFunction.Arn}/invocations"
+      ResourceId: !Ref ProxyResource
+      RestApiId: !Ref ApiGatewayDemo
+
+  ProxyResourcePutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: True
+      #ApiKeyRequired: False
+      AuthorizationType: NONE
+      HttpMethod: PUT
+      Integration:
+        Type: AWS_PROXY
+        Credentials: !GetAtt ApiServiceRole.Arn
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DemoLambdaFunction.Arn}/invocations"
+      ResourceId: !Ref ProxyResource
+      RestApiId: !Ref ApiGatewayDemo
+  
+  ProxyResourceDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: True
+      #ApiKeyRequired: False
+      AuthorizationType: NONE
+      HttpMethod: DELETE
+      Integration:
+        Type: AWS_PROXY
+        Credentials: !GetAtt ApiServiceRole.Arn
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DemoLambdaFunction.Arn}/invocations"
+      ResourceId: !Ref ProxyResource
+      RestApiId: !Ref ApiGatewayDemo
+
+  ProxyResourceOptionMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          StatusCode: "200"
+          ResponseParameters:
+            "method.response.header.Access-Control-Allow-Origin": "'*'"
+            "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,access-control-allow-origin,X-Api-Key'"
+            "method.response.header.Access-Control-Allow-Methods": "'GET, POST, PUT, DELETE, OPTIONS'"
+          ResponseTemplates:
+            "application/json": ''
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        ResponseParameters:
+          "method.response.header.Access-Control-Allow-Origin": false
+          "method.response.header.Access-Control-Allow-Headers": false
+          "method.response.header.Access-Control-Allow-Methods": false
+        StatusCode: "200"
+      ResourceId: !Ref ProxyResource
+      RestApiId: !Ref ApiGatewayDemo
+  
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - ProxyResourceOptionMethod
+      - ProxyResourcePostMethod
+      - ProxyResourceGetMethod
+      - ProxyResourcePutMethod
+      - ProxyResourceDeleteMethod
+    Properties:
+      Description: !Sub "${EnvironmentName}-${ProjectName} deployment"
+      RestApiId: !Ref ApiGatewayDemo
+
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref ApiGatewayDeployment
+      Description: !Sub "${EnvironmentName}-${ProjectName} stage"
+      RestApiId: !Ref ApiGatewayDemo
+      StageName: !Sub "${ApiStageName}"
+  
+  EnvApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Description: !Sub "API Key for ${ProjectName} in the ${EnvironmentName} env."
+      Enabled: True
+      Name: !Sub "${EnvironmentName}-${ProjectName}"
+      StageKeys:
+        RestApiId: !Ref ApiGatewayDemo
+        StageName: !Ref ApiGatewayStage
+  
+  EnvApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      ApiStages:
+        RestApiId: !Ref ApiGatewayDemo
+        Stage: !Ref ApiGatewayStage
+      Description: !Sub "API Key Usage Plan for ${ProjectName} in the ${EnvironmentName} env."
+      Quota:
+        Limit: !Ref ApiUsageMonthlyLimit
+        Period: MONTH
+      Throttle:
+        BurstLimit: !Ref ApiUsageBurstLimit
+        RateLimit: !Ref ApiUsageRateLimit
+      UsagePlanName: !Sub "${EnvironmentName}-${ProjectName}"
+  
+  ApiServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${EnvironmentName}-${ProjectName}-api-gateway"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "apigateway.amazonaws.com"
+            Action: "sts:AssumeRole"
+        ManagedPolicyArns:
+            - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+      Policies:
+      - PolicyName: !Sub "${EnvironmentName}-${ProjectName}-api-gateway"
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: "Allow"
+              Action: "lambda:InvokeFunction"
+              Resource: 
+                - !GetAtt DemoLambdaFunction.Arn
