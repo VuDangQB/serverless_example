@@ -131,7 +131,7 @@ Resources:
       Type: AWS::DynamoDB::Table
       UpdateReplacePolicy: Retain
       Properties:
-        TableName: !Sub "${ProjectName}_${EnvironmentName}_table"
+        TableName: !Sub "${ProjectName}_${EnvironmentName}_student"
         AttributeDefinitions:
             - AttributeName: "PK"
               AttributeType: "S"
@@ -311,22 +311,22 @@ Resources:
       Integration:
         Type: MOCK
         IntegrationResponses:
-          StatusCode: "200"
-          ResponseParameters:
-            "method.response.header.Access-Control-Allow-Origin": "'*'"
-            "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,access-control-allow-origin,X-Api-Key'"
-            "method.response.header.Access-Control-Allow-Methods": "'GET, POST, PUT, DELETE, OPTIONS'"
-          ResponseTemplates:
-            "application/json": ''
+          - StatusCode: "200"
+            ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": "'*'"
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,access-control-allow-origin,X-Api-Key'"
+              "method.response.header.Access-Control-Allow-Methods": "'GET, POST, PUT, DELETE, OPTIONS'"
+            ResponseTemplates:
+              "application/json": ''
         PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
           application/json: '{"statusCode": 200}'
       MethodResponses:
-        ResponseParameters:
-          "method.response.header.Access-Control-Allow-Origin": false
-          "method.response.header.Access-Control-Allow-Headers": false
-          "method.response.header.Access-Control-Allow-Methods": false
-        StatusCode: "200"
+        - ResponseParameters:
+            "method.response.header.Access-Control-Allow-Origin": false
+            "method.response.header.Access-Control-Allow-Headers": false
+            "method.response.header.Access-Control-Allow-Methods": false
+          StatusCode: "200"
       ResourceId: !Ref ProxyResource
       RestApiId: !Ref ApiGatewayDemo
   
@@ -357,15 +357,15 @@ Resources:
       Enabled: True
       Name: !Sub "${EnvironmentName}-${ProjectName}"
       StageKeys:
-        RestApiId: !Ref ApiGatewayDemo
-        StageName: !Ref ApiGatewayStage
+        - RestApiId: !Ref ApiGatewayDemo
+          StageName: !Ref ApiGatewayStage
   
   EnvApiUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     Properties:
       ApiStages:
-        RestApiId: !Ref ApiGatewayDemo
-        Stage: !Ref ApiGatewayStage
+        - ApiId: !Ref ApiGatewayDemo
+          Stage: !Ref ApiGatewayStage
       Description: !Sub "API Key Usage Plan for ${ProjectName} in the ${EnvironmentName} env."
       Quota:
         Limit: !Ref ApiUsageMonthlyLimit
@@ -382,12 +382,12 @@ Resources:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Effect: "Allow"
-            Principal:
-              Service: "apigateway.amazonaws.com"
-            Action: "sts:AssumeRole"
-        ManagedPolicyArns:
-            - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+          Effect: "Allow"
+          Principal:
+            Service: "apigateway.amazonaws.com"
+          Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
       Policies:
       - PolicyName: !Sub "${EnvironmentName}-${ProjectName}-api-gateway"
         PolicyDocument:
